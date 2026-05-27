@@ -1,0 +1,72 @@
+# Build + sample-run verification on macOS + Linux.
+#
+# Box2D 3.x isn't packaged for most distros yet, so we build + install
+# Erin Catto's box2d from source into a temp prefix and point CMake at
+# it via CMAKE_PREFIX_PATH. This is what consumers downstream would do
+# too if they aren't using a system package.
+#
+# Windows omitted from the initial matrix — clang on Windows + the
+# arm64-only NEON .s file in the LiquidFun source need separate care.
+# Add when/if a Windows consumer reports an issue.
+
+name: build
+
+on:
+  push:
+    branches: [box2d-3.x]
+  pull_request:
+    branches: [box2d-3.x]
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache Box2D 3.x install
+        id: cache-box2d
+        uses: actions/cache@v4
+        with:
+          path: /tmp/box2d-install
+          # Cache key versions when Box2D 3.x is bumped; bump this string
+          # to force a rebuild.
+          key: box2d-3.x-${{ matrix.os }}-v1
+
+      - name: Build + install Box2D 3.x
+        if: steps.cache-box2d.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 https://github.com/erincatto/box2d.git /tmp/box2d
+          cmake -B /tmp/box2d/build -S /tmp/box2d \
+            -DBOX2D_SAMPLES=OFF \
+            -DBOX2D_UNIT_TESTS=OFF \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX=/tmp/box2d-install
+          cmake --build /tmp/box2d/build --config Release -j
+          cmake --install /tmp/box2d/build
+
+      - name: Configure liquidfun_box2d3
+        run: |
+          cmake -B build \
+            -DCMAKE_PREFIX_PATH=/tmp/box2d-install \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DLIQUIDFUN_BOX2D3_SAMPLES=ON
+
+      - name: Build liquidfun_box2d3
+        run: cmake --build build --config Release -j
+
+      - name: Verify library artifact
+        run: |
+          ls -la build/libliquidfun_box2d3.a
+          # Sanity: archive should contain a few thousand symbols
+          nm build/libliquidfun_box2d3.a | grep -c "^[0-9a-f]" || true
+
+      - name: Run dam_break sample
+        run: |
+          ./build/samples/dam_break
+          # Sample should print spawn count + per-step snapshots without
+          # crashing. Non-zero exit fails the step automatically.
