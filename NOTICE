@@ -1,0 +1,102 @@
+NOTICE — fork modifications
+============================
+
+This is a derivative work of Google's LiquidFun 1.1.0
+(upstream: https://github.com/google/liquidfun), branched from upstream
+commit 7f20402173fd143a3988c921bc384459c6a858f2 (the final upstream
+commit before archival in February 2026).
+
+The original LiquidFun is itself a derivative work of Erin Catto's
+Box2D 2.x (https://github.com/erincatto/box2d).
+
+This branch (box2d-3.x) PORTS the LiquidFun particle solver to work with
+Box2D 3.x — Erin Catto's from-scratch 2024 C rewrite of Box2D — instead
+of LiquidFun's original Box2D 2.x. Box2D 3.x does not ship a particle
+system; LiquidFun's solver fills that gap. This fork is the adapter
+between them.
+
+The zlib/libpng license (see LICENSE) requires that altered source
+versions be plainly marked, that the origin not be misrepresented, and
+that the original notice be preserved. The original notice is preserved
+in UPSTREAM_NOTICE; this NOTICE documents what was changed.
+
+CHANGES FROM UPSTREAM
+---------------------
+
+### Files REMOVED from upstream
+
+  - freeglut/                         — Testbed app's GLUT dependency
+  - googletest/                       — unit-test framework
+  - liquidfun/Contributions/          — non-C++ language bindings
+                                        (Java, JavaScript, AS3, Lua, etc.)
+  - liquidfun/tools/                  — SWIG bindings + auxiliary tools
+  - liquidfun/Box2D/Box2D/Rope/       — rope simulation; outside the
+                                        particle solver's scope
+  - liquidfun/Box2D/Box2D/Documentation/ — handled in README.md instead
+  - liquidfun/Box2D/Box2D/Dynamics/   — most files removed; only
+                                        b2TimeStep.h and b2WorldCallbacks.h
+                                        retained (Box2D 3.x replaces the
+                                        dynamics subsystem entirely)
+  - liquidfun/Box2D/Box2D/Collision/  — most files removed; only
+                                        b2Collision.h retained; the Shape
+                                        subsystem was REPLACED (see below)
+  - All upstream CMakeLists.txt, Box2DConfig.cmake.in, UseBox2D.cmake,
+    Box2D.h umbrella header — replaced by this fork's own CMakeLists.txt
+
+### Files REPLACED (no longer reflect upstream LiquidFun source)
+
+The Box2D 2.x b2World / b2Body / b2Fixture / b2Shape classes were
+replaced with minimal stubs that route method calls through the
+box2d3_adapter bridge instead of running their own dynamics. Each file
+below carries a header comment noting it is a REPLACEMENT.
+
+  - include/Box2D/Dynamics/b2World.h
+  - include/Box2D/Dynamics/b2Body.h
+  - include/Box2D/Dynamics/b2Fixture.h
+  - include/Box2D/Dynamics/b2ContactManager.h         (minimal stub; held by
+                                                       b2World as a value field)
+  - include/Box2D/Collision/Shapes/b2Shape.h
+  - include/Box2D/Collision/Shapes/b2CircleShape.h
+  - include/Box2D/Collision/Shapes/b2PolygonShape.h
+  - include/Box2D/Collision/Shapes/b2EdgeShape.h      (minimal stub)
+  - include/Box2D/Collision/Shapes/b2ChainShape.h     (minimal stub)
+  - include/Box2D/Common/b2Draw.h                     (minimal stub;
+                                                       LiquidFun's debug draw
+                                                       integration is out of
+                                                       scope for the port)
+
+### Files ADDED (new in this fork)
+
+  - LICENSE                                           (zlib license text)
+  - NOTICE                                            (this file)
+  - README.md                                         (project overview)
+  - CMakeLists.txt                                    (standalone build)
+  - include/box2d3_adapter/bridge.h                   (plain-C bridge API)
+  - include/box2d3_adapter/handle_table.h             (consumer-implemented
+                                                       interface for resolving
+                                                       handles to Box2D 3.x IDs)
+  - src/liquidfun_side_adapter.cpp                    (LiquidFun-side method
+                                                       implementations that
+                                                       route through bridge)
+  - src/box2d3_side_adapter.cpp                       (Box2D-3.x-side bridge
+                                                       implementations)
+  - samples/dam_break/                                (standalone sample app)
+
+### Files RETAINED FROM UPSTREAM (verbatim, no modifications)
+
+  - All files under src/Box2D/Particle/
+  - All files under src/Box2D/Common/
+  - include/Box2D/Particle/*.h (six headers: b2Particle.h,
+    b2ParticleAssembly.h, b2ParticleGroup.h, b2ParticleSystem.h,
+    b2StackQueue.h, b2VoronoiDiagram.h)
+  - include/Box2D/Common/*.h     (except b2Draw.h, which was replaced)
+  - include/Box2D/Dynamics/b2TimeStep.h
+  - include/Box2D/Dynamics/b2WorldCallbacks.h
+  - include/Box2D/Collision/b2Collision.h
+  - UPSTREAM_NOTICE              (the original LiquidFun copyright header,
+                                  preserved verbatim per zlib condition 3)
+  - UPSTREAM_README.md           (the original LiquidFun README, renamed
+                                  to avoid collision with this fork's
+                                  README.md)
+  - UPSTREAM_RELEASENOTES.md     (the original release notes)
+  - MODULE_LICENSE_BSD_LIKE      (Google's AOSP license marker)
