@@ -67,6 +67,8 @@ jobs:
 
       - name: Run dam_break sample
         run: |
-          ./build/samples/dam_break
+          # CMake puts the executable under build/samples/<target_name>/
+          # (same name as the subdir), not at build/samples/<target_name>.
+          ./build/samples/dam_break/dam_break
           # Sample should print spawn count + per-step snapshots without
           # crashing. Non-zero exit fails the step automatically.
