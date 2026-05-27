@@ -48,8 +48,19 @@ int  lfa_world_is_locked(lfa_world_handle w);
 // AABB query callback: called by Box2D 3.x's overlap query for each hit shape.
 // Return 1 to continue iteration, 0 to stop.
 typedef int (*lfa_query_callback_fn)(lfa_fixture_handle hit, void* ctx);
+
+// AABB query with a filter. `filter_category_bits` identifies the QUERY's
+// category; `filter_mask_bits` identifies which shape categories the query
+// accepts. Both follow Box2D 3.x's b2QueryFilter bidirectional-match
+// convention: a shape is returned only if
+//   (shape.categoryBits & filter_mask_bits) != 0 AND
+//   (shape.maskBits     & filter_category_bits) != 0.
+//
+// Pass UINT64_MAX for both to match all shapes (promiscuous).
 void lfa_world_query_aabb(lfa_world_handle w,
                           const float lower_xy[2], const float upper_xy[2],
+                          uint64_t filter_category_bits,
+                          uint64_t filter_mask_bits,
                           lfa_query_callback_fn cb, void* ctx);
 
 // -------------------- Body --------------------

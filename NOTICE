@@ -100,3 +100,33 @@ below carries a header comment noting it is a REPLACEMENT.
                                   README.md)
   - UPSTREAM_RELEASENOTES.md     (the original release notes)
   - MODULE_LICENSE_BSD_LIKE      (Google's AOSP license marker)
+
+CHANGELOG
+---------
+
+### Post-initial-release fixes
+
+**`b2Fixture::ComputeDistance` + `b2Fixture::RayCast` — correct delegation
+to shape SDF / ray-cast.** The initial port routed these methods through
+the `lfa_fixture_compute_distance` / `lfa_fixture_*` bridge helpers, which
+in turn used Box2D 3.x AABB-based approximations:
+
+- `ComputeDistance` returned a normal computed from the unsigned AABB
+  axis-deltas `dx`/`dy`, which are always non-negative. The returned
+  normal was therefore always in the (+x, +y) quadrant regardless of
+  which side of the body the particle was actually on. After LiquidFun's
+  `contact.normal = -n` flip in `b2ParticleSystem::UpdateBodyContacts`,
+  every particle-body impulse pointed in the (-x, -y) direction. This
+  caused submerged rigid bodies to be yanked toward the world's
+  bottom-left corner instead of being buoyed up.
+- `RayCast` passed an identity transform to the shape's RayCast method
+  instead of the body's actual transform, so LiquidFun's particle CCD
+  (used in `SolveCollision`) checked particle motion against polygons
+  positioned at the origin — particles tunneled through any non-origin
+  polygon.
+
+Both methods now delegate to the corresponding `b2Shape::*` overrides
+in `liquidfun_side_adapter.cpp`, which implement proper polygon /
+circle SDFs and ray-casts using the body's actual world transform.
+Buoyancy now emerges correctly from LiquidFun's SPH pressure model
+(verified against the AC water-terrain testbed at seed 42).

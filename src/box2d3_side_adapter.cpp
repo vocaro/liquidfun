@@ -51,10 +51,9 @@ struct QueryCtx {
 bool b2x_overlap_trampoline(b2ShapeId shape, void* ctx_v)
 {
     QueryCtx* ctx = static_cast<QueryCtx*>(ctx_v);
-    // Recover the shape's slot-table handle from its user-data (set when the
-    // shape was created in ext_box2d.c — Stage 3 wires this up).
-    int32_t handle = static_cast<int32_t>(
-        reinterpret_cast<intptr_t>(b2Shape_GetUserData(shape)));
+    intptr_t stored = reinterpret_cast<intptr_t>(b2Shape_GetUserData(shape));
+    if (stored == 0) return true;
+    int32_t handle = static_cast<int32_t>(stored - 1);
     return ctx->user_cb(handle, ctx->user_ctx) != 0;
 }
 }  // namespace
@@ -62,16 +61,17 @@ bool b2x_overlap_trampoline(b2ShapeId shape, void* ctx_v)
 extern "C" void lfa_world_query_aabb(lfa_world_handle w,
                                      const float lower_xy[2],
                                      const float upper_xy[2],
+                                     uint64_t filter_category_bits,
+                                     uint64_t filter_mask_bits,
                                      lfa_query_callback_fn cb, void* ctx)
 {
     b2WorldId world = b2x_handle_to_world(w);
-    // Phase A no-op: shape handle table is stubbed (b2x_handle_to_shape
-    // returns b2_nullShapeId), so invoking b2World_OverlapAABB would
-    // trigger UB downstream when LiquidFun's trampoline tries to translate
-    // the returned shapes back through our stubbed table. Until Phase B
-    // wires the real shape handle table, return without invoking the
-    // callback. Particles see no rigid bodies.
-    (void)world; (void)lower_xy; (void)upper_xy; (void)cb; (void)ctx;
+    b2AABB aabb;
+    aabb.lowerBound = (b2Vec2){lower_xy[0], lower_xy[1]};
+    aabb.upperBound = (b2Vec2){upper_xy[0], upper_xy[1]};
+    QueryCtx qctx = {cb, ctx};
+    b2QueryFilter filter = {filter_category_bits, filter_mask_bits};
+    b2World_OverlapAABB(world, aabb, filter, b2x_overlap_trampoline, &qctx);
 }
 
 // -------------------- Body --------------------
@@ -142,9 +142,13 @@ extern "C" lfa_body_handle lfa_fixture_get_body(lfa_fixture_handle f)
 {
     b2ShapeId sid = b2x_handle_to_shape(f);
     b2BodyId bid = b2Shape_GetBody(sid);
-    // Recover body's slot via user-data (Stage 3 wires this).
-    return static_cast<int32_t>(
-        reinterpret_cast<intptr_t>(b2Body_GetUserData(bid)));
+    // Recover body's slot via user-data. Same +1/-1 convention as the
+    // QueryAABB trampoline — consumer stores slot+1 to round-trip slot 0
+    // through the void* pointer. A stored 0 means the consumer never
+    // registered this body with us; return -1 to surface that as an
+    // invalid handle.
+    intptr_t stored = reinterpret_cast<intptr_t>(b2Body_GetUserData(bid));
+    return stored == 0 ? -1 : static_cast<int32_t>(stored - 1);
 }
 
 extern "C" lfa_shape_handle lfa_fixture_get_shape(lfa_fixture_handle f)

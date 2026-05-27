@@ -54,6 +54,24 @@ public:
 
     b2Vec2 m_gravity;
 
+    // Adapter extension: filter applied to QueryAABB calls from the
+    // particle solver. Lets the consumer scope which rigid bodies water
+    // particles "see" — e.g., to filter out terrain shapes whose geometry
+    // would push particles in the wrong direction, while still seeing
+    // dynamic bodies the consumer wants particles to interact with.
+    // Default: promiscuous (sees everything). Set via lfa_handle_to_world's
+    // world's fields before calling Solve.
+    //
+    // The two values follow Box2D 3.x's b2QueryFilter convention:
+    //   - lfa_query_category_bits: identifies the QUERY as belonging to
+    //     a category; a shape is returned only if shape.maskBits has
+    //     this bit set.
+    //   - lfa_query_mask_bits: which shape categories the QUERY accepts;
+    //     a shape is returned only if shape.categoryBits has any of these
+    //     bits set.
+    uint64_t lfa_query_category_bits = ~uint64_t(0);
+    uint64_t lfa_query_mask_bits     = ~uint64_t(0);
+
     // Adapter extension (Stage 2 Option A): slot-table handle.
     int32 lfa_handle = -1;
 };

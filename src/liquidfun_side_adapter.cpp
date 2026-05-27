@@ -152,7 +152,9 @@ void b2World::QueryAABB(b2QueryCallback* callback, const b2AABB& aabb) const {
     float lo[2] = {aabb.lowerBound.x, aabb.lowerBound.y};
     float hi[2] = {aabb.upperBound.x, aabb.upperBound.y};
     WrappedQueryCb w = {callback};
-    lfa_world_query_aabb(lfa_handle, lo, hi, liquidfun_query_trampoline, &w);
+    lfa_world_query_aabb(lfa_handle, lo, hi,
+                         lfa_query_category_bits, lfa_query_mask_bits,
+                         liquidfun_query_trampoline, &w);
 }
 
 // =====================================================================
@@ -214,27 +216,39 @@ bool b2Fixture::TestPoint(const b2Vec2& p) const {
 }
 
 bool b2Fixture::RayCast(b2RayCastOutput* output, const b2RayCastInput& input, int32 childIndex) const {
-    // Delegate to shape using cached fields + identity transform.
-    // (Bridge doesn't expose a fixture raycast in M6; route through shape.)
+    // Use the body's cached transform — the shape's vertices are in BODY
+    // LOCAL frame, so b2PolygonShape::RayCast needs the body's transform
+    // to convert the world-space ray into local space correctly.
+    // Earlier this passed identity, which caused the polygon SDF to compute
+    // distances against (0, 0) — making LiquidFun's CCD think NO particle
+    // ever crossed any boundary. That was the M6 Phase B water leak.
     if (!m_shape) return false;
-    b2Transform identity;
-    identity.SetIdentity();
-    return m_shape->RayCast(output, input, identity, childIndex);
-}
-
-void b2Fixture::ComputeDistance(const b2Vec2& p, float32* distance, b2Vec2* normal, int32 childIndex) const {
-    // Adapter currently has its own xf cached at stub-alloc time on m_body->m_xf.
     b2Transform xf;
     if (m_body) xf = m_body->m_xf;
     else xf.SetIdentity();
-    float xf_pos[2] = {xf.p.x, xf.p.y};
-    float xf_angle = atan2f(xf.q.s, xf.q.c);
-    float pt[2] = {p.x, p.y};
-    float dist;
-    float norm[2];
-    lfa_fixture_compute_distance(lfa_handle, xf_pos, xf_angle, pt, childIndex, &dist, norm);
-    *distance = dist;
-    normal->Set(norm[0], norm[1]);
+    return m_shape->RayCast(output, input, xf, childIndex);
+}
+
+void b2Fixture::ComputeDistance(const b2Vec2& p, float32* distance, b2Vec2* normal, int32 childIndex) const {
+    // CRITICAL: delegate to the shape's own ComputeDistance — NOT through
+    // the bridge's lfa_fixture_compute_distance, which uses an AABB-based
+    // approximation that returns a normal always in the (+x,+y) quadrant
+    // (because dx/dy are always non-negative absolute distances). That
+    // approximation broke buoyancy: every particle in contact with a body
+    // produced an impulse pushing the body in the (-x,-y) direction
+    // (after LiquidFun's contact.normal = -n flip), so animals get yanked
+    // to the bottom-left corner on first water contact. The b2*Shape::
+    // ComputeDistance overrides in this file implement proper polygon
+    // and circle SDFs with correctly-signed outward normals.
+    if (!m_shape) {
+        *distance = 0.0f;
+        normal->Set(1.0f, 0.0f);
+        return;
+    }
+    b2Transform xf;
+    if (m_body) xf = m_body->m_xf;
+    else xf.SetIdentity();
+    m_shape->ComputeDistance(xf, p, distance, normal, childIndex);
 }
 
 // =====================================================================
@@ -316,20 +330,154 @@ bool b2PolygonShape::TestPoint(const b2Transform& xf, const b2Vec2& p) const {
 void b2PolygonShape::ComputeDistance(const b2Transform& xf, const b2Vec2& p,
                                      float32* distance, b2Vec2* normal, int32 childIndex) const {
     (void)childIndex;
-    // M6: simple approximation — use centroid distance. Refine in Stage 5.
-    b2Vec2 c = b2Mul(xf, m_centroid);
-    b2Vec2 d = p - c;
-    *distance = d.Length();
-    if (*distance > b2_epsilon) {
-        *normal = (1.0f / *distance) * d;
+    // Signed distance from world point `p` to this polygon's boundary,
+    // plus the outward normal. Negative distance = inside polygon
+    // (penetration); positive = outside. LiquidFun's particle solver
+    // uses this to decide if a particle is in contact with the body and
+    // how to resolve the overlap.
+    //
+    // Method: convert p to local coords, then iterate edges.
+    // - If we ever see a positive half-plane distance, the point is
+    //   OUTSIDE the polygon (convexity). Distance = closest-point
+    //   distance to the nearest edge.
+    // - If all half-plane distances are negative, the point is INSIDE.
+    //   Distance = max (least-negative) half-plane distance, which is
+    //   the distance to the nearest edge from inside; normal is that
+    //   edge's outward normal.
+    b2Vec2 pLocal = b2MulT(xf.q, p - xf.p);
+
+    float32 max_inside_dist = -1.0e30f;
+    b2Vec2  max_inside_normal(0.0f, 1.0f);
+    float32 min_outside_dist_sq = 1.0e30f;
+    b2Vec2  min_outside_normal(0.0f, 1.0f);
+    bool    is_outside = false;
+
+    for (int32 i = 0; i < m_count; ++i) {
+        b2Vec2 a = m_vertices[i];
+        b2Vec2 b = m_vertices[(i + 1) % m_count];
+        b2Vec2 edge = b - a;
+        // Right-hand outward normal (assumes CCW winding — Box2D 3.x's
+        // b2MakeBox / b2ComputeHull convention).
+        b2Vec2 n_unnorm(edge.y, -edge.x);
+        float32 edge_len = n_unnorm.Length();
+        if (edge_len < b2_epsilon) continue;  // degenerate edge
+        b2Vec2 n = (1.0f / edge_len) * n_unnorm;
+
+        float32 half = b2Dot(n, pLocal - a);
+        if (half > 0.0f) {
+            is_outside = true;
+            float32 t = b2Dot(pLocal - a, edge) / b2Dot(edge, edge);
+            t = b2Clamp(t, 0.0f, 1.0f);
+            b2Vec2 closest = a + t * edge;
+            b2Vec2 to_p = pLocal - closest;
+            float32 d_sq = b2Dot(to_p, to_p);
+            if (d_sq < min_outside_dist_sq) {
+                min_outside_dist_sq = d_sq;
+                min_outside_normal = (d_sq > b2_epsilon)
+                    ? (1.0f / b2Sqrt(d_sq)) * to_p
+                    : n;
+            }
+        } else if (!is_outside && half > max_inside_dist) {
+            max_inside_dist = half;
+            max_inside_normal = n;
+        }
+    }
+
+    if (is_outside) {
+        *distance = b2Sqrt(min_outside_dist_sq);
+        *normal = b2Mul(xf.q, min_outside_normal);
     } else {
-        normal->Set(1.0f, 0.0f);
+        // Return the raw signed distance (negative = inside). LiquidFun's
+        // UpdateBodyContacts uses this to compute contact weight = 1 - d *
+        // inv_diameter; deeper penetration → higher weight → stronger
+        // pressure response. Clamping the depth (we tried -5cm) artificially
+        // reduces the response for deeply penetrating particles, which
+        // breaks containment for the water-only thick floor/walls. Trust
+        // the solver to handle large weights.
+        *distance = max_inside_dist;
+        *normal = b2Mul(xf.q, max_inside_normal);
     }
 }
 
-bool b2PolygonShape::RayCast(b2RayCastOutput*, const b2RayCastInput&,
-                             const b2Transform&, int32) const {
-    return false;  // M6 testbed doesn't ray-cast polygons. Stage 5 if needed.
+bool b2PolygonShape::RayCast(b2RayCastOutput* output, const b2RayCastInput& input,
+                             const b2Transform& xf, int32 childIndex) const {
+    (void)childIndex;
+    // CRITICAL: LiquidFun's particle solver uses this method (NOT
+    // ComputeDistance) for the bulk of its particle-vs-body contact
+    // response. SolveCollision casts a ray from each particle's previous
+    // position to its new position; if the ray intersects a body, the
+    // particle's velocity is clamped to stop at the boundary, preventing
+    // tunneling. A stub that returns false makes particles tunnel through
+    // every polygon — exactly the leak we hit in M6 Phase B.
+    //
+    // Standard ray-vs-convex-polygon using the slab/half-plane method:
+    // for each edge, compute the t-parameter where the ray crosses the
+    // edge's outward half-plane. If the ray enters the half-plane from
+    // outside (denom < 0), it's an entry; track the LATEST entry t.
+    // If the ray exits the half-plane (denom > 0), it's an exit; track
+    // the EARLIEST exit t. The polygon is convex, so the actual intersection
+    // is (latest_entry, earliest_exit) — empty if entry > exit.
+
+    // Transform ray to local space.
+    b2Vec2 p1 = b2MulT(xf.q, input.p1 - xf.p);
+    b2Vec2 p2 = b2MulT(xf.q, input.p2 - xf.p);
+    b2Vec2 d  = p2 - p1;
+
+    float32 lower = 0.0f;
+    float32 upper = input.maxFraction;
+    int32   index = -1;  // edge index of the entry hit
+
+    for (int32 i = 0; i < m_count; ++i) {
+        // Outward normal of edge i (CCW polygon): n = perp(b - a)
+        b2Vec2 a = m_vertices[i];
+        b2Vec2 b = m_vertices[(i + 1) % m_count];
+        b2Vec2 edge = b - a;
+        b2Vec2 n_unnorm(edge.y, -edge.x);
+        float32 edge_len = n_unnorm.Length();
+        if (edge_len < b2_epsilon) continue;
+        b2Vec2 n = (1.0f / edge_len) * n_unnorm;
+
+        // Numerator: signed distance from p1 to the edge's plane.
+        float32 numerator   = b2Dot(n, a - p1);
+        float32 denominator = b2Dot(n, d);
+
+        if (denominator == 0.0f) {
+            // Ray parallel to edge. If outside this half-plane, ray
+            // misses polygon entirely.
+            if (numerator < 0.0f) return false;
+        } else {
+            float32 t = numerator / denominator;
+            if (denominator < 0.0f) {
+                // Ray entering this half-plane (going OUT of polygon's
+                // exterior into its interior).
+                if (t > lower) {
+                    lower = t;
+                    index = i;
+                }
+            } else {
+                // Ray exiting this half-plane.
+                if (t < upper) {
+                    upper = t;
+                }
+            }
+        }
+        if (lower > upper) return false;
+    }
+
+    if (index < 0) {
+        return false;  // no entry hit (ray started inside, or missed)
+    }
+
+    output->fraction = lower;
+    // Normal at the hit: outward normal of the entry edge, rotated to world.
+    b2Vec2 a = m_vertices[index];
+    b2Vec2 b = m_vertices[(index + 1) % m_count];
+    b2Vec2 edge = b - a;
+    b2Vec2 n_unnorm(edge.y, -edge.x);
+    float32 edge_len = n_unnorm.Length();
+    b2Vec2 n_local = (1.0f / edge_len) * n_unnorm;
+    output->normal = b2Mul(xf.q, n_local);
+    return true;
 }
 
 void b2PolygonShape::ComputeAABB(b2AABB* aabb, const b2Transform& xf, int32 childIndex) const {
