@@ -1,4 +1,14 @@
-add_executable(dam_break main.cpp)
+# Two-TU split — see dam_break.h header for rationale.
+#
+# main.cpp:           sees ONLY Box2D 3.x headers (#include <box2d/box2d.h>)
+# particle_world.cpp: sees ONLY LiquidFun headers (#include <Box2D/Common/b2Math.h> etc.)
+#
+# Both TUs must NEVER share LiquidFun + Box2D 3.x headers in the same
+# preprocessor scope — those header sets define b2Vec2 / b2Mat22 / b2Rot
+# / b2Transform with conflicting signatures and produce hundreds of
+# redefinition errors. They communicate via the plain-C declarations
+# in dam_break.h.
+add_executable(dam_break main.cpp particle_world.cpp)
 
 target_link_libraries(dam_break PRIVATE liquidfun_box2d3)
 

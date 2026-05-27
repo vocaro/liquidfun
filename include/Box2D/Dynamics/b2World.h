@@ -10,6 +10,7 @@
 #ifndef B2_WORLD_H
 #define B2_WORLD_H
 
+#include <cstdint>  // uint64_t for adapter-extension query filter fields
 #include <Box2D/Common/b2Math.h>
 #include <Box2D/Common/b2BlockAllocator.h>
 #include <Box2D/Common/b2StackAllocator.h>

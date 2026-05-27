@@ -106,6 +106,42 @@ CHANGELOG
 
 ### Post-initial-release fixes
 
+**`b2World.h` — add `<cstdint>` include.** The header uses `uint64_t`
+for the adapter-extension filter fields (`lfa_query_category_bits` /
+`lfa_query_mask_bits`) but didn't include `<cstdint>`. macOS / libc++
+gets the type transitively from other STL headers; Linux / libstdc++
+doesn't, so Linux builds failed with `'uint64_t' does not name a type`.
+
+**`samples/dam_break` — split into two TUs to match the adapter's
+symbol-isolation rule.** The original sample included both
+`<box2d/box2d.h>` (Box2D 3.x) and `<Box2D/Common/b2Math.h>`
+(LiquidFun) in the same translation unit. These header sets define
+`b2Vec2`, `b2Mat22`, `b2Rot`, `b2Transform`, etc. with conflicting
+signatures and produce hundreds of redefinition errors. The sample
+now splits its sources following the same rule the adapter uses
+internally: `main.cpp` sees ONLY Box2D 3.x (owns the rigid world +
+handle-table implementation), `particle_world.cpp` sees ONLY LiquidFun
+(owns the b2World stub + particle system), with `dam_break.h`
+providing a plain-C interface between them. This is also the model
+downstream consumers must follow when integrating the library.
+
+**`samples/dam_break` — set user-data on the ground body + shape.**
+Without `b2Body_SetUserData` / `b2Shape_SetUserData`, the
+`box2d3_side_adapter` AABB-query trampoline reads `userdata == 0`,
+treats it as "no handle registered," and silently skips the LiquidFun
+callback — particles fall straight through the ground. The sample now
+sets user-data so it actually demonstrates working particle-vs-rigid
+contact.
+
+**Known sample limitation (NOT a regression):** the dam_break sample
+prints `sunk_through = N/M > 0` because the minimal setup has no side
+walls and particles spread laterally as the pile settles, eventually
+flowing off the ground's edges. A real consumer integration adds side
+walls (and tunes spawn height + particle iterations + ground thickness)
+to confine the pile. CI fails only on `final_n == 0` (complete adapter
+breakage) — moderate tunneling is expected for this minimal sample and
+is logged but not fatal.
+
 **`b2Fixture::ComputeDistance` + `b2Fixture::RayCast` — correct delegation
 to shape SDF / ray-cast.** The initial port routed these methods through
 the `lfa_fixture_compute_distance` / `lfa_fixture_*` bridge helpers, which
