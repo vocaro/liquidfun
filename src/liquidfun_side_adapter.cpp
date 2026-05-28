@@ -7,8 +7,8 @@
 // box2d3_side_adapter.cpp.
 //
 // Compiles seeing ONLY LiquidFun's b2* headers (replaced versions from
-// vendor/liquidfun_particles/include_replacements/ + upstream b2Math/
-// b2Settings/b2Collision/b2WorldCallbacks/etc. from vendor/liquidfun_particles/
+// include/ + upstream b2Math/
+// b2Settings/b2Collision/b2WorldCallbacks/etc. from src/
 // src/).
 //
 // Per-tick stub pool:
@@ -16,7 +16,7 @@
 //   b2Fixture* + concrete b2Shape* pointers. LiquidFun's solver retains
 //   these for the duration of the particle step (stored in m_bodyContactBuffer
 //   and friends). The pool is reset at the start of each particle step via
-//   lfa_reset_pool() — call this from ext_particles.cpp before invoking
+//   lfa_reset_pool() — call this from the consumer (e.g. an FFI facade) before invoking
 //   b2World_Step → b2ParticleSystem_Solve.
 
 #include <Box2D/Common/b2Math.h>
@@ -65,7 +65,7 @@ b2Body* alloc_body_stub(int32 handle) {
     lfa_body_get_transform(handle, pos, &angle);
     b->m_xf.p.Set(pos[0], pos[1]);
     b->m_xf.q.Set(angle);
-    b->m_xf0 = b->m_xf;  // M6: no separate previous-tick transform.
+    b->m_xf0 = b->m_xf;  // Port simplification: no separate previous-tick transform.
     b->m_mass = lfa_body_get_mass(handle);
     b->m_I = lfa_body_get_inertia(handle);
     float lc[2]; lfa_body_get_local_center(handle, lc);
@@ -101,13 +101,13 @@ b2Shape* alloc_shape_stub(int32 handle, int type) {
                 lfa_shape_polygon_get_vertex(handle, i, v);
                 s->m_vertices[i].Set(v[0], v[1]);
             }
-            // Normals + centroid are derivable; M6 testbed doesn't query
-            // them via shape, so leave zero for now (Stage 5 task if needed).
+            // Normals + centroid are derivable; the port does not query
+            // them via shape, so leave zero for now (future work if needed).
             s->m_centroid.SetZero();
             return s;
         }
         default:
-            return nullptr;  // Edge/chain shapes not used in M6.
+            return nullptr;  // Edge/chain shapes not exercised by the port.
     }
 }
 
@@ -126,7 +126,7 @@ b2Fixture* alloc_fixture_stub(int32 handle) {
 }
 }  // namespace
 
-// Called by ext_particles.cpp at the start of each particle step.
+// Called by the consumer at the start of each particle step.
 extern "C" void lfa_reset_pool() {
     g_pool.reset();
 }
@@ -221,7 +221,7 @@ bool b2Fixture::RayCast(b2RayCastOutput* output, const b2RayCastInput& input, in
     // to convert the world-space ray into local space correctly.
     // Earlier this passed identity, which caused the polygon SDF to compute
     // distances against (0, 0) — making LiquidFun's CCD think NO particle
-    // ever crossed any boundary. That was the M6 Phase B water leak.
+    // ever crossed any boundary. That was the water-tunneling bug fixed during port integration.
     if (!m_shape) return false;
     b2Transform xf;
     if (m_body) xf = m_body->m_xf;
@@ -317,7 +317,7 @@ void b2CircleShape::ComputeMass(b2MassData* massData, float32 density) const {
 bool b2PolygonShape::TestPoint(const b2Transform& xf, const b2Vec2& p) const {
     b2Vec2 pLocal = b2MulT(xf.q, p - xf.p);
     for (int32 i = 0; i < m_count; ++i) {
-        // M5 fallback: use edge from i to i+1 as the support normal direction.
+        // Fallback: use edge from i to i+1 as the support normal direction.
         b2Vec2 a = m_vertices[i];
         b2Vec2 b = m_vertices[(i + 1) % m_count];
         b2Vec2 edge = b - a;
@@ -408,7 +408,7 @@ bool b2PolygonShape::RayCast(b2RayCastOutput* output, const b2RayCastInput& inpu
     // position to its new position; if the ray intersects a body, the
     // particle's velocity is clamped to stop at the boundary, preventing
     // tunneling. A stub that returns false makes particles tunnel through
-    // every polygon — exactly the leak we hit in M6 Phase B.
+    // every polygon — exactly the leak fixed during port integration.
     //
     // Standard ray-vs-convex-polygon using the slab/half-plane method:
     // for each edge, compute the t-parameter where the ray crosses the
@@ -494,7 +494,7 @@ void b2PolygonShape::ComputeAABB(b2AABB* aabb, const b2Transform& xf, int32 chil
 }
 
 void b2PolygonShape::ComputeMass(b2MassData* massData, float32 density) const {
-    // Rough approximation; M6 testbed doesn't depend on polygon mass calcs.
+    // Rough approximation; the port does not depend on polygon mass calcs.
     massData->mass = density;
     massData->center = m_centroid;
     massData->I = density;

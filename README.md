@@ -148,13 +148,12 @@ int n = system->GetParticleCount();
 
 ## Status
 
-**Experimental.** This fork is used in production by
-[Animal Crackers](https://github.com/vocaro/animal-crackers) (a Steam-bound
-artillery game). The particle solver runs; the standalone sample builds
-clean; integration tests are pending. PRs and issue reports welcome —
-contributions are *not* guaranteed to be triaged on any particular
-timeline; this is a "make it usable and discoverable" effort, not a
-managed project.
+**Experimental.** This fork is used in production by at least one
+unreleased game integration. The particle solver runs; the standalone
+sample builds clean; integration tests are pending. PRs and issue
+reports welcome — contributions are *not* guaranteed to be triaged on
+any particular timeline; this is a "make it usable and discoverable"
+effort, not a managed project.
 
 Known limitations:
 

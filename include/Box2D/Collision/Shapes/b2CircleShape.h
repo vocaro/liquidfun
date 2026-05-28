@@ -1,4 +1,4 @@
-// b2CircleShape.h — REPLACEMENT (Animal Crackers M6 adapter)
+// b2CircleShape.h — REPLACEMENT (box2d3 adapter)
 //
 // Fields m_p (center) + m_radius (inherited) are CACHED by the adapter at
 // shape-instantiation time from b2Shape_GetCircle(). Methods route through

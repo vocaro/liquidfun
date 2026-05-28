@@ -1,4 +1,4 @@
-// b2Shape.h — REPLACEMENT (Animal Crackers M6 adapter)
+// b2Shape.h — REPLACEMENT (box2d3 adapter)
 //
 // Minimal abstract b2Shape base class. The original LiquidFun version pulls in
 // Box2D 2.x's b2BlockAllocator (for Clone) and is tied to Box2D 2.x's
@@ -48,7 +48,7 @@ public:
     Type m_type;
     float32 m_radius;  // for circles + the skin thickness on polygons
 
-    // Adapter extension (Stage 2 Option A): slot-table handle that the
+    // Adapter extension: slot-table handle that the
     // bridge uses to translate this shape back into a b2ShapeId.
     int32 lfa_handle = -1;
 };

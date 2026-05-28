@@ -1,9 +1,9 @@
-// b2World.h — REPLACEMENT (Animal Crackers M6 adapter)
+// b2World.h — REPLACEMENT (box2d3 adapter)
 //
 // Minimal b2World stub. Owns the LiquidFun memory allocators (block + stack)
 // because the particle solver references them via world->m_blockAllocator
 // throughout. Owns nullptr listener pointers (advanced features not exposed
-// for M6). The particle solver only really CALLS QueryAABB on b2World; that
+// in this port). The particle solver only really CALLS QueryAABB on b2World; that
 // method is implemented in liquidfun_side_adapter.cpp routing through the
 // bridge.
 
@@ -30,7 +30,7 @@ struct b2ParticleSystemDef;
 class b2World {
 public:
     b2World(const b2Vec2& gravity) : m_gravity(gravity) {
-        // Listeners stay nullptr (M6 doesn't use them).
+        // Listeners stay nullptr (not used by the port).
         m_destructionListener = nullptr;
     }
 
@@ -73,7 +73,7 @@ public:
     uint64_t lfa_query_category_bits = ~uint64_t(0);
     uint64_t lfa_query_mask_bits     = ~uint64_t(0);
 
-    // Adapter extension (Stage 2 Option A): slot-table handle.
+    // Adapter extension: slot-table handle.
     int32 lfa_handle = -1;
 };
 

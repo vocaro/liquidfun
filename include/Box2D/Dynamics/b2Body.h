@@ -1,10 +1,10 @@
-// b2Body.h — REPLACEMENT (Animal Crackers M6 adapter)
+// b2Body.h — REPLACEMENT (box2d3 adapter)
 //
 // Minimal b2Body wrapping a slot-table handle. The particle solver receives
 // b2Body* pointers from QueryAABB callbacks; our adapter allocates a per-tick
 // pool of these and populates the cached transform fields from Box2D 3.x.
 //
-// Method implementations live in mygame/native/src/liquidfun_side_adapter.cpp;
+// Method implementations live in src/liquidfun_side_adapter.cpp;
 // they all route through the lfa_body_* bridge functions.
 
 #ifndef B2_BODY_H
@@ -61,7 +61,7 @@ public:
     b2Vec2 m_localCenterCached = b2Vec2_zero;  // backs GetLocalCenter()
     b2Vec2 m_worldCenterCached = b2Vec2_zero;  // backs GetWorldCenter()
 
-    // Adapter extension (Stage 2 Option A): slot-table handle.
+    // Adapter extension: slot-table handle.
     int32 lfa_handle = -1;
 };
 

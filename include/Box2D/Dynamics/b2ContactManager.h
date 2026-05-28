@@ -2,7 +2,7 @@
 //
 // Held as a value field by b2World. The particle solver only accesses
 // m_contactFilter / m_contactListener pointers, both of which stay nullptr
-// in our adapter (advanced LiquidFun features we don't expose for M6).
+// in our adapter (advanced LiquidFun features the port does not expose).
 
 #ifndef B2_CONTACT_MANAGER_H
 #define B2_CONTACT_MANAGER_H

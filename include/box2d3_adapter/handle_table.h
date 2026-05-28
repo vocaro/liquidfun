@@ -1,12 +1,12 @@
 // box2d3_handle_table.h
 //
-// Slot-table interface implemented by mygame/native/src/ext_box2d.c (the
+// Slot-table interface implemented by the consumer (the
 // existing 1024-slot body/shape table). The Box2D-3.x-side adapter uses
 // these accessors to translate lfa_*_handle integers into b2BodyId /
 // b2ShapeId values for calling the Box2D 3.x C API.
 //
-// For Stage 2 validation, we provide a no-op implementation in
-// box2d3_handle_table_stub.cpp. Stage 3 wires the real ext_box2d.c.
+// For local validation, we provide a no-op implementation in
+// box2d3_handle_table_stub.cpp. Real consumer integrations wire this to their own body/shape tables.
 
 #ifndef BOX2D3_HANDLE_TABLE_H
 #define BOX2D3_HANDLE_TABLE_H

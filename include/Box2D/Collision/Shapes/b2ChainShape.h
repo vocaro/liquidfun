@@ -1,4 +1,4 @@
-// b2ChainShape.h — REPLACEMENT (minimal stub; M6 testbed doesn't use chain shapes)
+// b2ChainShape.h — REPLACEMENT (minimal stub; chain shapes not exercised by the port)
 #ifndef B2_CHAIN_SHAPE_H
 #define B2_CHAIN_SHAPE_H
 #include <Box2D/Collision/Shapes/b2EdgeShape.h>

@@ -9,7 +9,7 @@
 //   liquidfun_side_adapter.cpp -> [these functions] -> box2d3_side_adapter.cpp
 //
 // Handles are integer indices into the shared body/shape slot table maintained
-// by mygame/native/src/ext_box2d.c (the existing 1024-slot table). Box2D-3.x
+// by the consumer (e.g. a 1024-slot body table). Box2D-3.x
 // side knows how to resolve handle -> b2BodyId / b2ShapeId. LiquidFun side
 // treats handles as opaque.
 //

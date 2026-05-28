@@ -8,8 +8,8 @@
 // converts back to plain float[2] at the bridge boundary so the LiquidFun
 // side sees no Box2D 3.x types.
 //
-// The body/shape handle table is provided by ext_box2d.c (Stage 3) via
-// box2d3_handle_table.h. For Stage 2 spike validation, a no-op stub
+// The body/shape handle table is provided by the consumer via
+// box2d3_handle_table.h. A no-op stub
 // implementation lives in box2d3_handle_table_stub.cpp.
 
 #include <box2d3_adapter/bridge.h>
@@ -186,7 +186,7 @@ extern "C" int lfa_fixture_compute_distance(lfa_fixture_handle f,
     (void)child_index;
     // Box2D 3.x's distance is shape-vs-shape, not shape-vs-point. Approximate
     // by casting a tiny ray from the point — distance is the ray hit distance.
-    // For Stage 2, this is the rough shape; Stage 3 may use b2ShapeDistance
+    // This is the rough shape; could use b2ShapeDistance
     // with a point treated as a degenerate proxy.
     b2ShapeId sid = b2x_handle_to_shape(f);
     b2Vec2 wp = (b2Vec2){point_xy[0], point_xy[1]};
@@ -198,7 +198,7 @@ extern "C" int lfa_fixture_compute_distance(lfa_fixture_handle f,
         out_normal[1] = 0.0f;
         return 1;
     }
-    // Otherwise return AABB-based approximate distance. Stage 3 refines.
+    // Otherwise return AABB-based approximate distance.
     b2AABB aabb = b2Shape_GetAABB(sid);
     float dx = 0.0f, dy = 0.0f;
     if (wp.x < aabb.lowerBound.x) dx = aabb.lowerBound.x - wp.x;

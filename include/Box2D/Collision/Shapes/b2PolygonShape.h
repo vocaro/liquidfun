@@ -1,4 +1,4 @@
-// b2PolygonShape.h — REPLACEMENT (Animal Crackers M6 adapter)
+// b2PolygonShape.h — REPLACEMENT (box2d3 adapter)
 //
 // Fields m_count / m_vertices / m_normals / m_centroid are CACHED by the
 // adapter at shape-instantiation time from b2Shape_GetPolygon().

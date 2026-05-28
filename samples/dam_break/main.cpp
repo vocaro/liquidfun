@@ -68,7 +68,7 @@ int main() {
     //   thick ground, fast-falling particles can reach the centerline
     //   within ~12 ticks and tunnel through. Make the ground so thick
     //   that any plausible penetration depth still leaves the top edge
-    //   as the nearest exit. AC's real consumer uses 1000m thick
+    //   as the nearest exit. A typical consumer uses 1000m thick
     //   water-containment walls.
     //
     // - WIDE: a water pile on a finite-width ground will spread laterally

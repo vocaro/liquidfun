@@ -1,4 +1,4 @@
-// b2EdgeShape.h — REPLACEMENT (minimal stub; M6 testbed doesn't use edge shapes)
+// b2EdgeShape.h — REPLACEMENT (minimal stub; edge shapes not exercised by the port)
 #ifndef B2_EDGE_SHAPE_H
 #define B2_EDGE_SHAPE_H
 #include <Box2D/Collision/Shapes/b2Shape.h>

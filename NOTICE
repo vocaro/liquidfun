@@ -165,4 +165,4 @@ Both methods now delegate to the corresponding `b2Shape::*` overrides
 in `liquidfun_side_adapter.cpp`, which implement proper polygon /
 circle SDFs and ray-casts using the body's actual world transform.
 Buoyancy now emerges correctly from LiquidFun's SPH pressure model
-(verified against the AC water-terrain testbed at seed 42).
+(verified against the the original consumer's water-terrain testbed at seed 42).

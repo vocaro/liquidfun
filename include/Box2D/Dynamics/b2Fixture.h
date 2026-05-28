@@ -1,4 +1,4 @@
-// b2Fixture.h — REPLACEMENT (Animal Crackers M6 adapter)
+// b2Fixture.h — REPLACEMENT (box2d3 adapter)
 //
 // In Box2D 3.x, the Fixture concept was merged into Shape. Our adapter
 // maintains a b2Fixture wrapper that holds a (body, shape) pair and routes
@@ -46,7 +46,7 @@ public:
     void* m_userData = nullptr;
     mutable b2AABB m_aabbCached;  // refreshed on GetAABB call
 
-    // Adapter extension (Stage 2 Option A): slot-table handle.
+    // Adapter extension: slot-table handle.
     int32 lfa_handle = -1;
 };
 

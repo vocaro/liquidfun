@@ -1,7 +1,7 @@
 // b2Draw.h — REPLACEMENT (minimal stub)
 //
 // The particle system references b2Draw for debug rendering. We don't wire
-// debug draw in M6 (deferred to Stage 7 / future work). This is just enough
+// debug draw (deferred to future work). This is just enough
 // for the particle solver to compile.
 
 #ifndef B2_DRAW_H

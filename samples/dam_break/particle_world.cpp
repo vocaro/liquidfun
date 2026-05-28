@@ -70,7 +70,7 @@ extern "C" void dam_break_step_particles(float dt)
 {
     if (!g_lf_world || !g_particles) return;
     // Solver iteration counts match LiquidFun's testbed defaults
-    // (vel=8 / pos=3 / particle=1). The AC consumer bumps particle
+    // (vel=8 / pos=3 / particle=1). The downstream consumer bumps particle
     // iterations to 8 to reduce tunneling for fast-falling particles
     // in dense scenes; tune up if you see particles plowing through
     // thin static bodies.
