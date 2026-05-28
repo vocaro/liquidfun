@@ -1,5 +1,10 @@
 # LiquidFun on Box2D 3.x
 
+> **Fluid + soft-body 2D physics for Box2D 3.x.** SPH-based particle
+> simulation — water, viscous oil, powder sand, elastic deformable
+> bodies, surface tension, barriers — running on top of Erin Catto's
+> modern C rewrite of Box2D.
+
 A port of [Google's LiquidFun][upstream] particle solver to [Erin Catto's
 Box2D 3.x][box2d3] — the from-scratch 2024 C rewrite that focuses on rigid
 bodies and dropped the particle/fluid simulation that LiquidFun originally
