@@ -490,7 +490,10 @@ template <typename T> T* b2ParticleSystem::ReallocateBuffer(
 		sizeof(T) * newCapacity);
 	if (oldBuffer)
 	{
-		memcpy(newBuffer, oldBuffer, sizeof(T) * oldCapacity);
+		// Bulk byte-copy of a POD-ish buffer; cast to void* documents the
+		// intent and silences -Wnontrivial-memcall (T may have a user-defined
+		// ctor, e.g. b2ParticleColor, but is byte-wise trivially relocatable).
+		memcpy((void*)newBuffer, (const void*)oldBuffer, sizeof(T) * oldCapacity);
 		m_world->m_blockAllocator.Free(oldBuffer, sizeof(T) * oldCapacity);
 	}
 	return newBuffer;
@@ -550,7 +553,9 @@ template <typename T> T* b2ParticleSystem::RequestBuffer(T* buffer)
 		buffer = (T*) (m_world->m_blockAllocator.Allocate(
 						   sizeof(T) * m_internalAllocatedCapacity));
 		b2Assert(buffer);
-		memset(buffer, 0, sizeof(T) * m_internalAllocatedCapacity);
+		// Zero-fill a freshly allocated POD-ish buffer; void* cast silences
+		// -Wnontrivial-memcall (see ReallocateBuffer above).
+		memset((void*)buffer, 0, sizeof(T) * m_internalAllocatedCapacity);
 	}
 	return buffer;
 }
@@ -2730,7 +2735,11 @@ void b2ParticleSystem::RemoveSpuriousBodyContacts()
 				b2ParticleSystem::BodyContactCompare);
 
 	int32 discarded = 0;
-	std::remove_if(m_bodyContactBuffer.Begin(),
+	// remove_if compacts kept contacts in place; the removed count is tracked
+	// via the predicate's side effect (&discarded), so the returned end
+	// iterator is deliberately unused. (void) silences -Wunused-result on
+	// remove_if's [[nodiscard]].
+	(void)std::remove_if(m_bodyContactBuffer.Begin(),
 					m_bodyContactBuffer.End(),
 					b2ParticleBodyContactRemovePredicate(this, &discarded));
 
